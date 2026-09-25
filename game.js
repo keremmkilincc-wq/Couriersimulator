@@ -14,20 +14,55 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; // parlama/yanma artefaktlarini onler
+renderer.toneMappingExposure = 1.0;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87b5e0);
-scene.fog = new THREE.Fog(0x87b5e0, 60, 220);
+scene.fog = new THREE.Fog(0xa8c8e8, 60, 240);
 
-const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 500);
-const hemi = new THREE.HemisphereLight(0xffffff, 0x334155, 0.9);
+const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 700);
+const hemi = new THREE.HemisphereLight(0xffffff, 0x334155, 0.75);
 scene.add(hemi);
-const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+const sun = new THREE.DirectionalLight(0xfff2dd, 1.35);
 sun.position.set(40, 60, 20);
 sun.castShadow = true;
 sun.shadow.camera.left = -80; sun.shadow.camera.right = 80;
 sun.shadow.camera.top = 80; sun.shadow.camera.bottom = -80;
 scene.add(sun);
+
+// ---------- GÖKYÜZÜ: gradyan kubbe + güneş + sürüklenen bulutlar ----------
+function makeSkyTexture() {
+  const c = document.createElement('canvas'); c.width = 4; c.height = 256;
+  const g = c.getContext('2d');
+  const gr = g.createLinearGradient(0, 0, 0, 256);
+  gr.addColorStop(0, '#2f6fd0'); gr.addColorStop(.55, '#7fb2e5'); gr.addColorStop(.8, '#cfe5f7'); gr.addColorStop(1, '#e8f3fc');
+  g.fillStyle = gr; g.fillRect(0, 0, 4, 256);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const skyDome = new THREE.Mesh(
+  new THREE.SphereGeometry(320, 24, 16),
+  new THREE.MeshBasicMaterial({ map: makeSkyTexture(), side: THREE.BackSide, fog: false })
+);
+scene.add(skyDome);
+const sunDisc = new THREE.Mesh(
+  new THREE.CircleGeometry(14, 24),
+  new THREE.MeshBasicMaterial({ color: 0xfff6cf, fog: false })
+);
+sunDisc.position.set(-140, 150, -240); sunDisc.lookAt(0, 0, 0); scene.add(sunDisc);
+const clouds = [];
+for (let i = 0; i < 9; i++) {
+  const grp = new THREE.Group();
+  const cm = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .88, fog: false });
+  const n = 3 + (i % 3);
+  for (let k = 0; k < n; k++) {
+    const s = new THREE.Mesh(new THREE.SphereGeometry(4 + ((i + k) % 3) * 2.2, 10, 8), cm);
+    s.position.set(k * 6 - n * 3, (k % 2) * 2, ((i + k) % 2) * 3);
+    s.scale.y = .55; grp.add(s);
+  }
+  grp.position.set(-200 + i * 48 + (i % 2) * 20, 62 + (i % 4) * 12, -160 + (i % 3) * 90);
+  scene.add(grp); clouds.push(grp);
+}
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
@@ -74,8 +109,9 @@ function loadOBJ(url, mtlUrl, cb) {
     objLoader.setPath(enc(dir)); objLoader.setMaterials(mats);
     objLoader.load(enc(file), cb, undefined, () => cb(null));
   }, undefined, () => { // mtl yoksa malzemesiz dene
-    objLoader.setPath(enc(dir)); objLoader.setMaterials(null);
-    objLoader.load(enc(file), cb, undefined, () => cb(null));
+    const plain = new OBJLoader(manager);
+    plain.setPath(enc(dir));
+    plain.load(enc(file), cb, undefined, () => cb(null));
   });
 }
 
@@ -101,6 +137,22 @@ function addBox(x, y, z, w, h, d, color, opts = {}) {
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400),
   new THREE.MeshStandardMaterial({ color: 0x3f4756 }));
 ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+
+// asfalt caddeler + şerit çizgileri (çarpışmasız, şehir okunabilirliği için)
+function roadSlab(x, z, w, d) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, .04, d),
+    new THREE.MeshStandardMaterial({ color: 0x2b2f36, roughness: 1 }));
+  m.position.set(x, .02, z); m.receiveShadow = true; scene.add(m);
+}
+roadSlab(-10, 0, 7, 130); roadSlab(10, 0, 7, 130);
+roadSlab(0, -10, 130, 7); roadSlab(0, 34, 130, 7);
+const dashMat = new THREE.MeshBasicMaterial({ color: 0xf8fafc });
+for (let z = -60; z <= 60; z += 6) {
+  [-10, 10].forEach(x => {
+    const dash = new THREE.Mesh(new THREE.BoxGeometry(.3, .05, 2.4), dashMat);
+    dash.position.set(x, .04, z); scene.add(dash);
+  });
+}
 
 // Bina slotları: [x, z, fitW, fitD] + gerçek model. Yükseklik modelden gelir,
 // görev/fan/zipline yükseklikleri modeller inince otomatik snaplenir.
@@ -140,7 +192,10 @@ function placeBuildingModel(b) {
     const box = groundModel(obj, b.x, b.z);
     if (b.col) b.col.topY = box.max.y;
     if (b.mesh) b.mesh.visible = false; // yedek kutuyu gizle, çarpışma güncel
-    if (b.rim) { b.rim.position.y = box.max.y + .08; }
+    if (b.rim) { // sarı çatı şeridini gerçek çatıya oturt
+      b.rim.scale.set((box.max.x - box.min.x) / b.w, 1, (box.max.z - box.min.z) / b.d);
+      b.rim.position.set(b.x, box.max.y + .08, b.z);
+    }
   };
   if (modelCache[key]) { apply(null); return; }
   const url = enc(CITY + b.url);
@@ -282,13 +337,14 @@ const destPoints = [
   { p: new THREE.Vector3(46, 8, 20), label: 'Bar Arka' },
   { p: new THREE.Vector3(0, 12, -46), label: 'Hotel Teras' },
 ];
-const beaconMat = new THREE.MeshBasicMaterial({ color: 0xfacc15, transparent: true, opacity: .55 });
-let beacon = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 30, 12), beaconMat);
-beacon.position.set(0, 15, 8); scene.add(beacon);
+const beaconMat = new THREE.MeshBasicMaterial({ color: 0xfacc15, transparent: true, opacity: .35 });
+let beacon = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 14, 12), beaconMat);
+beacon.position.set(0, 7, 8); scene.add(beacon);
 
-function topAt(x, z) {
+function topAt(x, z, buildingsOnly) {
   let top = 0;
   for (const c of colliders) {
+    if (buildingsOnly && c.type !== 'building') continue;
     if (x > c.minX && x < c.maxX && z > c.minZ && z < c.maxZ && c.topY > top && c.topY < 60) top = c.topY;
   }
   return top;
@@ -311,7 +367,7 @@ function finalizeLevel() {
   });
   zipNodes.forEach(n => n.mesh.position.copy(n.vec));
   destPoints.forEach(d => { d.p.y = (topAt(d.p.x, d.p.z) || 8) + .5; });
-  if (job) beacon.position.set(destPoints[job.dest].p.x, destPoints[job.dest].p.y + 12, destPoints[job.dest].p.z);
+  if (job) beacon.position.set(destPoints[job.dest].p.x, destPoints[job.dest].p.y + 7, destPoints[job.dest].p.z);
   loadEl.style.display = 'none';
   document.getElementById('help').classList.remove('hidden');
 }
@@ -393,13 +449,15 @@ function spawnWalkers() {
       const w = { obj: o, t: Math.random() * 10, cx: x, cz: z, r: 6 + Math.random() * 4 };
       if (o.animations && o.animations.length) {
         w.mixer = new THREE.AnimationMixer(o);
-        const a = w.mixer.clipAction(o.animations[0]); a.play();
+        const c = o.animations.find(a => /walk|run/i.test(a.name))
+          || o.animations.find(a => /idle/i.test(a.name)) || o.animations[0];
+        w.mixer.clipAction(c).play();
       }
       walkers.push(w);
     }, undefined, () => {});
   });
 }
-setTimeout(spawnWalkers, 6000);
+setTimeout(spawnWalkers, 2500);
 
 const P = {
   pos: new THREE.Vector3(0, 0, 12), vel: new THREE.Vector3(),
@@ -536,7 +594,7 @@ function takeJob(i) {
   $('job-menu').classList.add('hidden');
   $('pkg-label').textContent = job.name.toUpperCase().slice(0, 14);
   $('heat-wrap').style.display = job.type === 'hot' ? 'block' : 'none';
-  beacon.position.set(destPoints[job.dest].p.x, destPoints[job.dest].p.y + 12, destPoints[job.dest].p.z);
+  beacon.position.set(destPoints[job.dest].p.x, destPoints[job.dest].p.y + 7, destPoints[job.dest].p.z);
   toast(`Paket alındı: ${job.name} → ${destPoints[job.dest].label}`);
   blip(660);
 }
@@ -568,7 +626,7 @@ function deliver() {
   job = null; pkgMesh.visible = false;
   if (anims.wave) { setAnim('wave'); waveT = 1.6; }
   $('pkg-label').textContent = 'BOŞ';
-  beacon.position.set(depot.x, 15, depot.z);
+  beacon.position.set(depot.x, 7, depot.z);
   $('mission-title').textContent = 'Depoya dön ve yeni iş al (E)';
 }
 function toggleMotor() {
@@ -612,9 +670,9 @@ function tick() {
     P.flow = Math.min(100, P.flow + 40 * dt);
     if (P.rideT >= 1) { P.riding = null; P.vel.set(0, 4, 0); toast('Zipline çıkışı — zıpla ve ak!'); }
   } else {
-    // kamera bazlı yön
+    // kamera bazlı yön (D = ekran sağı, W = ilerisi)
     const sin = Math.sin(P.camYaw), cos = Math.cos(P.camYaw);
-    const wx = ix * cos - iz * sin, wz = -ix * sin - iz * cos;
+    const wx = -ix * cos - iz * sin, wz = ix * sin - iz * cos;
     const moving = Math.hypot(ix, iz) > .15;
 
     let maxSp = P.onMotor ? 18 : sprint ? 12 : 8;
@@ -758,11 +816,11 @@ function tick() {
   }
   if (heroModel) heroModel.scale.y = heroBaseY * (P.slideT > 0 ? .6 : 1);
   else body.scale.y = P.slideT > 0 ? .55 : 1;
-  // yayalar
+  // yayalar (arabalarin üstüne çıkmasınlar diye sadece binaları say)
   for (const w of walkers) {
     w.t += dt * .25;
     const wx = w.cx + Math.cos(w.t) * w.r, wz = w.cz + Math.sin(w.t) * w.r * .6;
-    w.obj.position.set(wx, topAt(wx, wz), wz);
+    w.obj.position.set(wx, topAt(wx, wz, true), wz);
     w.obj.rotation.y = Math.atan2(-Math.sin(w.t) * w.r, Math.cos(w.t) * w.r * .6) + Math.PI / 2;
     if (w.mixer) w.mixer.update(dt);
   }
@@ -790,11 +848,11 @@ function tick() {
   $('stats').textContent = `${P.speed.toFixed(1)} m/s${P.wallT > 0 ? ' | WALL-RUN' : ''}${P.flow > 60 ? ' | FLOW!' : ''} | 💰${money} | ⭐${rep}`;
   $('speed-lines').style.opacity = P.speed > 10 ? Math.min(.8, (P.speed - 10) / 8) : 0;
   $('vignette').style.boxShadow = P.flow > 60 ? 'inset 0 0 140px rgba(139,92,246,.55)' : 'inset 0 0 120px rgba(0,0,0,0)';
-  // rota oku
+  // rota oku: hedef öndeyse yukarı, sağdaysa sağa (➤ glifi doğuya bakar)
   const tgt = job ? destPoints[job.dest].p : depot;
   const ang = Math.atan2(tgt.x - P.pos.x, tgt.z - P.pos.z);
-  let rel = ang - P.camYaw + Math.PI;
-  $('route-arrow').style.transform = `translateX(-50%) rotate(${rel}rad)`;
+  const theta = -(ang - P.camYaw) - Math.PI / 2;
+  $('route-arrow').style.transform = `translateX(-50%) rotate(${theta}rad)`;
 
   // ses: rüzgar + müzik nabzı
   if (AC && windGain) windGain.gain.value = Math.min(.4, P.speed / 40);
@@ -810,6 +868,8 @@ function tick() {
   }
 
   beacon.rotation.y += dt;
+  for (const c of clouds) { c.position.x += dt * 1.4; if (c.position.x > 230) c.position.x = -230; }
+  skyDome.position.copy(camera.position);
   renderer.render(scene, camera);
 }
 $('help-close').onclick = () => { $('help').classList.add('hidden'); initAudio(); };
