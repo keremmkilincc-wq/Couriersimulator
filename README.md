@@ -3,14 +3,16 @@
 # 📦 COURIER SIMULATOR
 ### *Şehrin en hızlı kuryesi ol — çatılardan uç, duvarda koş, paketi zamanında bırak.*
 
-[![Version](https://img.shields.io/badge/version-v0.1.0_MVP-8b5cf6?style=for-the-badge)](https://github.com/keremmkilincc-wq/Couriersimulator/releases)
-[![Web](https://img.shields.io/badge/▶_WEB-oyna-22c55e?style=for-the-badge)](https://keremmkilincc-wq.github.io/Couriersimulator/)
-[![Windows](https://img.shields.io/badge/🖥_WINDOWS-portable-3b82f6?style=for-the-badge)](#-kurulum)
-[![Android](https://img.shields.io/badge/📱_ANDROID-yolda-f59e0b?style=for-the-badge)](#-android-apk-durumu)
+[![Version](https://img.shields.io/badge/version-v0.2.0-8b5cf6?style=for-the-badge)](https://github.com/keremmkilincc-wq/Couriersimulator/releases)
+[![Web](https://img.shields.io/badge/▶_WEB-hemen_oyna-22c55e?style=for-the-badge)](https://keremmkilincc-wq.github.io/Couriersimulator/game.html)
+[![Windows](https://img.shields.io/badge/🖥_EXE-auto_build-3b82f6?style=for-the-badge)](https://github.com/keremmkilincc-wq/Couriersimulator/releases)
+[![Android](https://img.shields.io/badge/📱_APK-auto_build-f59e0b?style=for-the-badge)](https://github.com/keremmkilincc-wq/Couriersimulator/releases)
 [![License](https://img.shields.io/badge/license-MIT-6b7280?style=for-the-badge)](LICENSE)
 [![GDD](https://img.shields.io/badge/📖_GDD-tasarım_belgesi-ec4899?style=for-the-badge)](GDD.md)
 
-**Tek kod tabanı → 3 platform:** 🌐 Web (hemen oyna) · 🖥 Windows (portable) · 📱 Android (hazırlık + mobil kontroller dahili)
+**Site:** https://keremmkilincc-wq.github.io/Couriersimulator/ · **Oyun:** https://keremmkilincc-wq.github.io/Couriersimulator/game.html
+
+**Tek kod tabanı → 3 platform:** 🌐 Web (canlı) · 🖥 EXE (her sürümde otomatik derlenir) · 📱 APK (her sürümde otomatik derlenir)
 
 [🎮 Hemen Oyna](#-hızlı-başlangıç) · [📖 GDD](GDD.md) · [📦 Releases](https://github.com/keremmkilincc-wq/Couriersimulator/releases) · [🛠 Kurulum](#-kurulum) · [🗺 Yol Haritası](#-yol-haritası)
 
@@ -36,9 +38,9 @@
 
 | Yol | Komut / Adım |
 |---|---|
-| 🌐 **Web (önerilen)** | Bu klasörde `npx serve .` → `http://localhost:3000` — veya repo Settings → Pages → `main` dalını aç, `index.html` otomatik yayınlanır |
-| 🖥 **Windows** | `dist/CourierSimulator-Win-Portable.zip` indir → çıkart → `OYNA-Windows.bat` çift tıkla |
-| 📱 **Android** | Aşağıdaki [APK durumu](#-android-apk-durumu) bölümüne bak — mobil kontroller oyunun içinde hazır |
+| 🌐 **Web (önerilen)** | **https://keremmkilincc-wq.github.io/Couriersimulator/game.html** — kurulum yok, hemen oyna |
+| 🖥 **Windows EXE** | [Releases](https://github.com/keremmkilincc-wq/Couriersimulator/releases) → `CourierSimulator-Win-EXE.zip` (otomatik derleme; yoksa `OYNA-Windows.bat`) |
+| 📱 **Android APK** | [Releases](https://github.com/keremmkilincc-wq/Couriersimulator/releases) → `CourierSimulator.apk` (otomatik derleme, yandan kur) |
 
 İnternet gerekir (Three.js CDN). Kurulum gerekmez, kayıtlar tarayıcıda saklanır.
 
@@ -132,14 +134,12 @@ Couriersimulator/
 
 ---
 
-## 🤖 Android APK durumu (dürüst not)
+## 🤖 EXE / APK nasıl üretiliyor? (şeffaf not)
 
-Bu PC'de **Java 8** var ve Android SDK kurulu değil — gerçek imzalı `.apk` burada derlenemez, o yüzden sahte APK koymadım. Hazır olanlar:
-
-- ✅ Mobil kontroller oyunun içinde (joystick + butonlar + swipe kamera)
-- ✅ `capacitor.config.json` hazır (`com.kerem.couriersimulator`)
-- ✅ Aynı `index.html` mobil tarayıcıda tam oynanır (PWA gibi kullan)
-- 🔜 Gerçek APK: Java 17 + Android Studio olan bir makinede `BUILD.md` adımları (5 komut)
+Bu PC'de Java 8 var, Android SDK yok — o yüzden gerçek `.exe` / `.apk` burada değil,
+GitHub'ın cloud makinelerinde derleniyor: her `v*` tag'inde
+`.github/workflows/build-exe.yml` (Windows) ve `build-apk.yml` (Java 17 + Gradle)
+otomatik çalışır ve dosyaları release'e ekler. Detay: `BUILD.md`.
 
 ---
 

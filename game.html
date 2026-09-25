@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Courier Simulator — Oyna</title>
+<link rel="stylesheet" href="style.css">
+<style>#back-home{position:fixed;left:12px;bottom:52px;z-index:30;background:rgba(10,14,30,.8);border:1px solid #8b5cf6;color:#fff;padding:8px 14px;border-radius:999px;font-size:13px;font-weight:700;text-decoration:none;font-family:Inter,Segoe UI,Arial,sans-serif}#back-home:hover{background:#8b5cf6}</style>
+<meta name="description" content="3D Parkur Kurye: sprint, slide, wall-run, zipline, fan, paket teslimatı. Web + APK + EXE tek taban.">
+</head>
+<body>
+<div id="app">
+  <a id="back-home" href="index.html">← Siteye Dön</a>
+  <canvas id="game"></canvas>
+
+  <!-- Minimal HUD -->
+  <div id="hud">
+    <div id="topbar">
+      <div id="mission-title">Depoya git ve iş al (E)</div>
+      <div id="timer-wrap"><div id="timer-bar"></div><span id="timer-text">--</span></div>
+    </div>
+    <div id="package-hud">
+      <div id="pkg-icon">📦</div>
+      <div id="pkg-hp"><div id="pkg-hp-fill"></div></div>
+      <div id="pkg-label">BOŞ</div>
+      <div id="heat-wrap"><div id="heat-fill"></div></div>
+    </div>
+    <div id="flow-wrap"><div id="flow-fill"></div><span>FLOW</span></div>
+    <div id="speed-lines"></div>
+    <div id="vignette"></div>
+    <div id="center-dot"></div>
+    <div id="route-arrow">➤</div>
+    <div id="toast"></div>
+    <div id="stats">0.0 m/s | 💰0 | ⭐0</div>
+  </div>
+
+  <!-- Job menu -->
+  <div id="job-menu" class="hidden">
+    <h2>📦 KURYE MERKEZİ</h2>
+    <p>Rota senin imzan. Paketi seç, rotayı çiz.</p>
+    <div id="job-list"></div>
+    <button id="job-close">Kapat [E]</button>
+  </div>
+
+  <!-- Help -->
+  <div id="help" class="hidden">
+    <h3>Kontroller</h3>
+    <p><b>WASD:</b> koş | <b>Shift:</b> depar | <b>Space:</b> zıpla / wall-jump | <b>C:</b> kayma | <b>E:</b> al/bırak/zipline | <b>M:</b> motor | <b>R:</b> reset</p>
+    <p>Duvar kenarında koşarken duvara sürt = WALL-RUN. Fan = yüksel, Mavi konteyner = yumuşak iniş, Sarı pano = sekme.</p>
+    <button id="help-close">Başla</button>
+  </div>
+
+  <!-- Mobile controls -->
+  <div id="touch-ui">
+    <div id="joystick"><div id="stick"></div></div>
+    <div id="touch-buttons">
+      <button id="btn-jump">▲</button>
+      <button id="btn-slide">▼</button>
+      <button id="btn-sprint">⚡</button>
+      <button id="btn-act">E</button>
+    </div>
+  </div>
+
+  <div id="loading">Yükleniyor... şehir kuruluyor</div>
+</div>
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
+</script>
+<script type="module" src="game.js"></script>
+</body>
+</html>

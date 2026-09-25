@@ -1,0 +1,20 @@
+name: build-exe
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+jobs:
+  exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - run: npx electron-packager . CourierSimulator --platform=win32 --arch=x64 --overwrite --out=release-exe
+      - shell: pwsh
+        run: Compress-Archive -Path release-exe/CourierSimulator-win32-x64/* -DestinationPath CourierSimulator-Win-EXE.zip -Force
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: CourierSimulator-Win-EXE.zip

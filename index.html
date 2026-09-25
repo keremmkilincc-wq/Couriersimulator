@@ -1,69 +1,173 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="tr" data-theme="midnight">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Courier Simulator — Parkur Kurye MVP</title>
-<link rel="stylesheet" href="style.css">
-<meta name="description" content="3D Parkur Kurye: sprint, slide, wall-run, zipline, fan, paket teslimatı. Web + APK + EXE tek taban.">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Courier Simulator — Parkur Kurye Oyunu</title>
+<meta name="description" content="3D parkur kurye oyunu: çatılardan uç, duvarda koş, paketi zamanında teslim et. Web'de hemen oyna, Windows ve Android sürümleriyle.">
+<link rel="icon" href="https://github.com/keremmkilincc-wq.png" type="image/png">
+<meta name="theme-color" content="#8b5cf6">
+<meta property="og:title" content="Courier Simulator — Parkur Kurye">
+<meta property="og:description" content="Durma. Ak. Teslim et. Tarayıcıda hemen oyna.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:dark;--bg:#070709;--card:#0F0F11;--accent:#8b5cf6;--accent2:#06b6d4;--txt:#f4f4f5;--mut:#a1a1aa;--line:rgba(255,255,255,.09)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--txt);font-family:Inter,Segoe UI,Arial,sans-serif;overflow-x:hidden}
+.bg-grid{background-image:radial-gradient(circle at 1px 1px,rgba(255,255,255,.06) 1px,transparent 0);background-size:32px 32px;position:fixed;inset:0;z-index:0}
+.aurora{position:fixed;inset:-20%;z-index:0;pointer-events:none;background:radial-gradient(600px circle at 50% 20%,rgba(139,92,246,.18),transparent 40%),radial-gradient(800px circle at 80% 10%,rgba(6,182,212,.12),transparent 40%),radial-gradient(700px circle at 20% 85%,rgba(244,63,94,.08),transparent 40%)}
+.wrap{position:relative;z-index:1;max-width:1080px;margin:0 auto;padding:0 20px}
+nav{display:flex;align-items:center;justify-content:space-between;padding:18px 0}
+.logo{font-family:"Space Grotesk",sans-serif;font-weight:700;font-size:20px;text-decoration:none;color:var(--txt)}
+.logo span{background:linear-gradient(90deg,#8b5cf6,#06b6d4);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.nav-links{display:flex;gap:18px;align-items:center}
+.nav-links a{color:var(--mut);text-decoration:none;font-size:14px}
+.nav-links a:hover{color:var(--txt)}
+.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;margin-right:6px;animation:blink 2s infinite}
+@keyframes blink{50%{opacity:.4}}
+.hero{text-align:center;padding:64px 0 36px}
+.badge{display:inline-block;border:1px solid var(--line);background:rgba(255,255,255,.04);border-radius:999px;padding:8px 18px;font-size:13px;color:var(--mut);margin-bottom:22px}
+.badge b{color:#facc15}
+h1{font-family:"Space Grotesk",sans-serif;font-size:clamp(38px,7vw,72px);line-height:1.05;font-weight:700}
+h1 .grad{background:linear-gradient(90deg,#8b5cf6,#06b6d4);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.sub{color:var(--mut);font-size:clamp(15px,2.4vw,18px);max-width:640px;margin:20px auto 0;line-height:1.6}
+.cta-row{display:flex;gap:14px;justify-content:center;margin-top:30px;flex-wrap:wrap}
+.btn{display:inline-block;padding:15px 34px;border-radius:999px;font-weight:700;font-size:16px;text-decoration:none;transition:transform .15s;cursor:pointer;border:0}
+.btn:hover{transform:scale(1.05)}
+.btn-neon{background:linear-gradient(90deg,#8b5cf6,#06b6d4);color:#fff;box-shadow:0 8px 28px rgba(139,92,246,.45)}
+.btn-ghost{border:1px solid var(--line);color:var(--txt);background:rgba(255,255,255,.04)}
+.stats{display:flex;gap:12px;justify-content:center;margin:34px 0 0;flex-wrap:wrap;font-family:"JetBrains Mono",monospace;font-size:13px;color:var(--mut)}
+.stats div{border:1px solid var(--line);border-radius:12px;padding:10px 18px;background:rgba(255,255,255,.03)}
+.stats b{color:var(--txt)}
+section{padding:44px 0}
+h2{font-family:"Space Grotesk",sans-serif;font-size:clamp(24px,4vw,34px);margin-bottom:8px}
+.sec-sub{color:var(--mut);margin-bottom:24px;font-size:15px}
+.bento{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;transition:transform .15s,border-color .15s}
+.card:hover{transform:translateY(-3px);border-color:var(--accent)}
+.card .ico{font-size:26px}
+.card h3{font-size:17px;margin:10px 0 6px;font-family:"Space Grotesk",sans-serif}
+.card p{font-size:14px;color:var(--mut);line-height:1.55}
+.card code{font-family:"JetBrains Mono",monospace;font-size:12px;background:rgba(139,92,246,.15);padding:2px 8px;border-radius:6px;color:#c4b5fd}
+table{width:100%;border-collapse:collapse;font-size:14px;background:var(--card);border-radius:16px;overflow:hidden}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line)}
+th{color:var(--mut);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:1px}
+td code{font-family:"JetBrains Mono",monospace;background:rgba(6,182,212,.12);padding:2px 8px;border-radius:6px;font-size:12px}
+.dl-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.dl-card{text-align:center;padding:28px 20px}
+.dl-card .big{font-size:40px}
+.dl-card a{margin-top:14px}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px;margin-top:10px}
+.tag.ok{background:rgba(34,197,94,.15);color:#4ade80}
+.tag.soon{background:rgba(245,158,11,.15);color:#fbbf24}
+footer{border-top:1px solid var(--line);padding:28px 0 40px;margin-top:20px;color:var(--mut);font-size:13px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+footer a{color:var(--mut)}
+kbd{font-family:"JetBrains Mono",monospace;background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:6px;padding:1px 7px;font-size:12px}
+@media(max-width:640px){.nav-links a:not(.btn){display:none}}
+</style>
 </head>
 <body>
-<div id="app">
-  <canvas id="game"></canvas>
+<div class="bg-grid"></div>
+<div class="aurora"></div>
+<div class="wrap">
 
-  <!-- Minimal HUD -->
-  <div id="hud">
-    <div id="topbar">
-      <div id="mission-title">Depoya git ve iş al (E)</div>
-      <div id="timer-wrap"><div id="timer-bar"></div><span id="timer-text">--</span></div>
+  <nav>
+    <a class="logo" href="index.html">📦 COURIER<span>SIM</span></a>
+    <div class="nav-links">
+      <a href="#ozellikler">Özellikler</a>
+      <a href="#kontroller">Kontroller</a>
+      <a href="#indir">İndir</a>
+      <a href="GDD.md">GDD</a>
+      <a href="https://github.com/keremmkilincc-wq" style="color:#c4b5fd">Kerem KILINÇ ↗</a>
     </div>
-    <div id="package-hud">
-      <div id="pkg-icon">📦</div>
-      <div id="pkg-hp"><div id="pkg-hp-fill"></div></div>
-      <div id="pkg-label">BOŞ</div>
-      <div id="heat-wrap"><div id="heat-fill"></div></div>
+  </nav>
+
+  <div class="hero">
+    <div class="badge"><span class="live-dot"></span><b>v0.2.0</b> &nbsp;·&nbsp; tarayıcıda oyna · 3D parkur kurye</div>
+    <h1>Şehrin en hızlı<br><span class="grad">kuryesi ol.</span></h1>
+    <p class="sub">Çatılardan uç, duvarda koş, fanla yüksel, zipline ile vadi geç. Paketi sarsmadan, dakikası dakikasına teslim et. <b style="color:#fff">Durma. Ak. Teslim et.</b></p>
+    <div class="cta-row">
+      <a class="btn btn-neon" href="game.html">▶ Hemen Oyna</a>
+      <a class="btn btn-ghost" href="#indir">⬇ Sürümler</a>
     </div>
-    <div id="flow-wrap"><div id="flow-fill"></div><span>FLOW</span></div>
-    <div id="speed-lines"></div>
-    <div id="vignette"></div>
-    <div id="center-dot"></div>
-    <div id="route-arrow">➤</div>
-    <div id="toast"></div>
-    <div id="stats">0.0 m/s | 💰0 | ⭐0</div>
-  </div>
-
-  <!-- Job menu -->
-  <div id="job-menu" class="hidden">
-    <h2>📦 KURYE MERKEZİ</h2>
-    <p>Rota senin imzan. Paketi seç, rotayı çiz.</p>
-    <div id="job-list"></div>
-    <button id="job-close">Kapat [E]</button>
-  </div>
-
-  <!-- Help -->
-  <div id="help" class="hidden">
-    <h3>Kontroller</h3>
-    <p><b>WASD:</b> koş | <b>Shift:</b> depar | <b>Space:</b> zıpla / wall-jump | <b>C:</b> kayma | <b>E:</b> al/bırak/zipline | <b>M:</b> motor | <b>R:</b> reset</p>
-    <p>Duvar kenarında koşarken duvara sürt = WALL-RUN. Fan = yüksel, Mavi konteyner = yumuşak iniş, Sarı pano = sekme.</p>
-    <button id="help-close">Başla</button>
-  </div>
-
-  <!-- Mobile controls -->
-  <div id="touch-ui">
-    <div id="joystick"><div id="stick"></div></div>
-    <div id="touch-buttons">
-      <button id="btn-jump">▲</button>
-      <button id="btn-slide">▼</button>
-      <button id="btn-sprint">⚡</button>
-      <button id="btn-act">E</button>
+    <div class="stats">
+      <div><b>6</b> paket tipi</div>
+      <div><b>3</b> platform</div>
+      <div><b>∞</b> rota</div>
+      <div><b>0</b> kurulum (web)</div>
     </div>
   </div>
 
-  <div id="loading">Yükleniyor... şehir kuruluyor</div>
+  <section id="ozellikler">
+    <h2>⚡ Neler var?</h2>
+    <p class="sec-sub">GDD'nin oynanabilir karşılığı — hepsi tarayıcıda çalışıyor.</p>
+    <div class="bento">
+      <div class="card"><div class="ico">🏃</div><h3>Sprint + Slide + Vault</h3><p>Deparla ivme biriktir, barikat altından kay, kaputlardan <code>vault</code> ile uçarak geç. Slide-hop ile momentumu koru.</p></div>
+      <div class="card"><div class="ico">🧱</div><h3>Wall-Run + Wall-Jump</h3><p>Duvara hızlı sürt → duvarda koş. Çıkışta <code>Space</code> → karşı duvara sekmeye devam. Akışı bozma.</p></div>
+      <div class="card"><div class="ico">🌊</div><h3>Flow State</h3><p>5-7 sn temiz zincir → müzik yükselir, FOV açılır, <code>%10 hız</code> bonusu. Çarpınca sıfırlanır.</p></div>
+      <div class="card"><div class="ico">🚡</div><h3>Zipline + Fan + Pano</h3><p>Kırmızı kürelerde <code>E</code> → uç. Camgöbeği fanlar yükseltir, sarı panolar sektirir, mavi konteyner kurtarır.</p></div>
+      <div class="card"><div class="ico">📦</div><h3>6 Paket Tipi</h3><p>Kırılabilir, sıcak, ağır… Paketi seçmek = rotayı seçmek. Hasar ve ısı gerçek zamanlı işler.</p></div>
+      <div class="card"><div class="ico">🏅</div><h3>Bronz / Gümüş / Altın</h3><p>Süre + paket sağlamlığı dereceni belirler. Altın = <code>x2.2 ücret</code> + itibar. Skorlar tarayıcıda saklanır.</p></div>
+    </div>
+  </section>
+
+  <section id="kontroller">
+    <h2>🕹 Kontroller</h2>
+    <p class="sec-sub">PC'de klavye + fare, telefonda joystick + butonlar.</p>
+    <table>
+      <tr><th>Tuş</th><th>Hareket</th></tr>
+      <tr><td><kbd>W A S D</kbd></td><td>Koş (kamera yönüne göre)</td></tr>
+      <tr><td><kbd>Shift</kbd></td><td>Depar — hız patlaması</td></tr>
+      <tr><td><kbd>Space</kbd></td><td>Zıpla · duvardaysan Wall-Jump · kayarken Slide-Hop</td></tr>
+      <tr><td><kbd>C</kbd></td><td>Kayma (yokuşta hızlandırır)</td></tr>
+      <tr><td><kbd>E</kbd></td><td>Paket al / teslim et / zipline'a bin</td></tr>
+      <tr><td><kbd>M</kbd></td><td>Motor modu (hızlı transfer)</td></tr>
+      <tr><td><kbd>R</kbd></td><td>Yeniden doğ (+5 sn)</td></tr>
+    </table>
+    <p class="sec-sub" style="margin-top:14px">📱 Mobil: sol joystick + sağ swipe kamera + ▲ ▼ ⚡ E butonları. Kontroller oyunun içinde hazır.</p>
+  </section>
+
+  <section id="indir">
+    <h2>⬇ Sürümler</h2>
+    <p class="sec-sub">Tek kod tabanı, üç çıktı. EXE ve APK her tag'de otomatik derlenip release'e eklenir.</p>
+    <div class="dl-grid">
+      <div class="card dl-card">
+        <div class="big">🌐</div><h3>Web</h3>
+        <p>Kurulumsuz. Bu sitede <b>Hemen Oyna</b>'ya basman yeterli.</p>
+        <div><span class="tag ok">● CANLI</span></div><br>
+        <a class="btn btn-neon" href="game.html" style="font-size:14px;padding:12px 26px">▶ Oyna</a>
+      </div>
+      <div class="card dl-card">
+        <div class="big">🖥️</div><h3>Windows EXE</h3>
+        <p>Her sürümde cloud'da derlenir, release'e eklenir. O zamana kadar portable launcher:</p>
+        <div><span class="tag soon">● AUTO-BUILD</span></div><br>
+        <a class="btn btn-ghost" href="https://github.com/keremmkilincc-wq/Couriersimulator/releases" style="font-size:14px;padding:12px 26px">Releases →</a>
+      </div>
+      <div class="card dl-card">
+        <div class="big">📱</div><h3>Android APK</h3>
+        <p>Cloud'da derlenir (debug APK, yandan yüklenir). Mobil tarayıcıda da tam oynanır.</p>
+        <div><span class="tag soon">● AUTO-BUILD</span></div><br>
+        <a class="btn btn-ghost" href="https://github.com/keremmkilincc-wq/Couriersimulator/releases" style="font-size:14px;padding:12px 26px">Releases →</a>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>📖 Tasarım Belgesi</h2>
+    <p class="sec-sub">Hareket sistemi, paket matriksi, level tasarımı, skill tree, ses/görsel yön — kodsuz, tam GDD.</p>
+    <a class="btn btn-ghost" href="GDD.md">GDD'yi Oku →</a>
+    &nbsp;
+    <a class="btn btn-ghost" href="https://github.com/keremmkilincc-wq/Couriersimulator">GitHub Repo ↗</a>
+  </section>
+
+  <footer>
+    <div><b style="color:#fff">📦 Courier Simulator</b> · © 2026 Kerem KILINÇ · MIT</div>
+    <div><a href="https://keremmkilincc-wq.github.io/">keremmkilincc-wq.github.io</a> · <a href="https://github.com/keremmkilincc-wq/Couriersimulator">repo</a> · <a href="game.html">oyna</a></div>
+  </footer>
+
 </div>
-<script type="importmap">
-{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
-</script>
-<script type="module" src="game.js"></script>
 </body>
 </html>

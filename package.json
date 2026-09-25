@@ -1,14 +1,19 @@
 {
   "name": "courier-simulator",
-  "version": "0.1.0",
-  "description": "3D Parkur Kurye MVP — Web + EXE + APK tek taban",
+  "version": "0.2.0",
+  "description": "3D Parkur Kurye — Web + EXE + APK tek taban",
   "main": "electron-main.js",
   "scripts": {
     "web": "npx serve .",
-    "exe": "npx electron-packager . CourierSimulator --platform=win32 --arch=x64 --overwrite",
-    "exe:portable": "npx @electron/packager . --platform win32"
+    "exe": "npx electron-packager . CourierSimulator --platform=win32 --arch=x64 --overwrite --out=release-exe",
+    "cap:sync": "npx cap sync"
   },
   "devDependencies": {
-    "electron": "^30.0.0"
+    "electron": "^30.0.0",
+    "@capacitor/cli": "^6.1.0"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.1.0",
+    "@capacitor/android": "^6.1.0"
   }
 }

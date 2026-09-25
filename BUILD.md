@@ -1,23 +1,29 @@
-# Courier Simulator MVP — Çalıştırma ve Paketleme
+# Courier Simulator — Çalıştırma ve Paketleme (v0.2.0)
 
-Tek kod tabanı ile 3 çıktı. FBX City Pack bu MVP'de prosedürel şehir olarak temsil edilir
-(performans + Web uyumu için). Gerçek FBX'ler `assets-source/` notunda durur.
+Tek kod tabanı ile 3 çıktı. Site: `index.html` (tanıtım + indirme),
+oyun: `game.html` (Three.js, CDN gerekir).
 
-## 1. Web (hemen oyna)
-- Bu klasörü GitHub Pages'e aç veya lokalde çalıştır:
-- `npx serve .` → `http://localhost:3000`
-- `index.html` Three.js CDN kullanır, internet gerekir.
+## 1. Website (canlı)
+- GitHub Pages `main` dalından yayınlanır:
+- **https://keremmkilincc-wq.github.io/Couriersimulator/** → site
+- **https://keremmkilincc-wq.github.io/Couriersimulator/game.html** → oyun
+- Lokalde: `npx serve .` → `http://localhost:3000`
 
 ## 2. EXE (Windows)
-- `npm install` → `npm run exe`
-- Çıktı: `CourierSimulator-win32-x64/` → `CourierSimulator.exe`
-- Alternatif portsuz: Electron olmadan Chrome ile `index.html` açmak da aynı oyundur.
+- Otomatik: her `v*` tag'inde `.github/workflows/build-exe.yml` cloud'da
+  Electron paketini derler ve release'e `CourierSimulator-Win-EXE.zip` ekler.
+- Manuel: `npm install` → `npm run exe` → `release-exe/CourierSimulator-win32-x64/CourierSimulator.exe`
+- Hızlı: `OYNA-Windows.bat` (tarayıcıda app modunda açar, kurulum yok).
 
 ## 3. APK (Android + joystick)
-- Mobil kontroller dahili: sol joystick, sağ swipe kamera, ▲ zıpla, ▼ kayma, ⚡ depar, E etkileşim.
-- Gerçek APK için:
-- `npm i @capacitor/core @capacitor/cli` → `npx cap init` → `npx cap add android` → `npx cap copy` → Android Studio'da APK build.
-- Bu repo `capacitor.config.json` ile hazırdır. Java 17 + Android SDK gerekir (bu PC'de Java 8 var, yükseltmeden APK derlenemez).
+- Otomatik: her `v*` tag'inde `.github/workflows/build-apk.yml` cloud'da
+  debug APK derler ve release'e `CourierSimulator.apk` ekler.
+  Telefonda bilinmeyen kaynağa izin verip kur (yan yükleme).
+- Mobil kontroller oyunda dahili: sol joystick, sağ swipe kamera,
+  ▲ zıpla, ▼ kayma, ⚡ depar, E etkileşim.
+- Manuel (Java 17 + Android SDK gerekir):
+- `npm install` → `npx cap add android` → `npm run cap:sync` →
+  `cd android && ./gradlew assembleDebug`
 
 ## Kontroller
 WASD koş, Shift depar, Space zıpla/wall-jump, C kayma, E al/bırak/zipline, M motor, R reset.
