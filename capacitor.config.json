@@ -1,7 +1,7 @@
 {
   "appId": "com.kerem.couriersimulator",
   "appName": "Courier Simulator",
-  "webDir": ".",
+  "webDir": "www",
   "backgroundColor": "#0b1020",
   "android": {
     "allowMixedContent": true
