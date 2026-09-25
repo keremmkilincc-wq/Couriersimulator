@@ -3,7 +3,7 @@
 # 📦 COURIER SIMULATOR
 ### *Şehrin en hızlı kuryesi ol — çatılardan uç, duvarda koş, paketi zamanında bırak.*
 
-[![Version](https://img.shields.io/badge/version-v0.2.0-8b5cf6?style=for-the-badge)](https://github.com/keremmkilincc-wq/Couriersimulator/releases)
+[![Version](https://img.shields.io/badge/version-v0.3.0-8b5cf6?style=for-the-badge)](https://github.com/keremmkilincc-wq/Couriersimulator/releases)
 [![Web](https://img.shields.io/badge/▶_WEB-hemen_oyna-22c55e?style=for-the-badge)](https://keremmkilincc-wq.github.io/Couriersimulator/game.html)
 [![Windows](https://img.shields.io/badge/🖥_EXE-auto_build-3b82f6?style=for-the-badge)](https://github.com/keremmkilincc-wq/Couriersimulator/releases)
 [![Android](https://img.shields.io/badge/📱_APK-auto_build-f59e0b?style=for-the-badge)](https://github.com/keremmkilincc-wq/Couriersimulator/releases)
