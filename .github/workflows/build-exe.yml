@@ -15,6 +15,10 @@ jobs:
       - run: npx electron-packager . CourierSimulator --platform=win32 --arch=x64 --overwrite --out=release-exe
       - shell: pwsh
         run: Compress-Archive -Path release-exe/CourierSimulator-win32-x64/* -DestinationPath CourierSimulator-Win-EXE.zip -Force
+      - shell: pwsh
+        run: Compress-Archive -Path index.html,game.html,game.js,style.css,assets,README.md,BUILD.md,GDD.md,LICENSE,OYNA-Windows.bat -DestinationPath CourierSimulator-Web.zip -Force
       - uses: softprops/action-gh-release@v2
         with:
-          files: CourierSimulator-Win-EXE.zip
+          files: |
+            CourierSimulator-Win-EXE.zip
+            CourierSimulator-Web.zip

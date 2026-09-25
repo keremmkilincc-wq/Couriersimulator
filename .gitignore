@@ -1,0 +1,8 @@
+android/
+release-exe/
+CourierSimulator-Win-EXE.zip
+CourierSimulator-Web.zip
+CourierSimulator.apk
+node_modules/
+.chrome-profile/
+.edge-profile/

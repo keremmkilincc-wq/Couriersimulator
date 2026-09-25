@@ -1,8 +1,12 @@
 import * as THREE from 'three';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
 
-// ============ COURIER SIMULATOR MVP (Web / APK / EXE tek taban) ============
-// Kodsuz GDD'nin oynanabilir karşılığı: sprint, slide, wall-run, fan, zipline,
-// paket tipleri, bronz/gümüş/altın, flow, joystick + mobil butonlar.
+// ============ COURIER SIMULATOR v0.3.0 — GERÇEK ASSETLER ============
+// Şehir: City Pack (FBX/OBJ) | Karakter: Adventurer by Quaternius (animasyonlu FBX)
+// Kargo: Package by Isa Lousberg (FBX). Modeller yüklenemezse (örn. file://)
+// prosedürel yedekler devreye girer, oynanış aynen devam eder.
 
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -30,82 +34,241 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
 });
 
-// ---------- ŞEHİR (FBX City Pack'in prosedürel MVP karşılığı) ----------
+// ---------- MODEL YÜKLEYİCİ ALTYAPISI ----------
+const manager = new THREE.LoadingManager();
+const loadEl = document.getElementById('loading');
+manager.onProgress = (url, loaded, total) => {
+  loadEl.textContent = `Şehir kuruluyor... gerçek modeller yükleniyor (${loaded}/${total})`;
+};
+manager.onError = () => { /* yedek kutular devrede, sessiz geç */ };
+const fbxLoader = new FBXLoader(manager);
+const objLoader = new OBJLoader(manager);
+const mtlLoader = new MTLLoader(manager);
+const enc = u => encodeURI(u);
+const CITY = 'assets/city/';
+
+function autoFit(obj, fitW, fitD, maxH) {
+  const box = new THREE.Box3().setFromObject(obj);
+  const size = new THREE.Vector3(); box.getSize(size);
+  if (size.x < .01 || size.z < .01) return { h: 2 };
+  const s = Math.min(fitW / size.x, fitD / size.z, maxH / Math.max(size.y, .01));
+  obj.scale.multiplyScalar(s);
+  const b2 = new THREE.Box3().setFromObject(obj);
+  return { h: b2.max.y - b2.min.y, minY: b2.min.y };
+}
+function groundModel(obj, x, z) {
+  const b = new THREE.Box3().setFromObject(obj);
+  obj.position.x += x - (b.min.x + b.max.x) / 2;
+  obj.position.z += z - (b.min.z + b.max.z) / 2;
+  const b2 = new THREE.Box3().setFromObject(obj);
+  obj.position.y -= b2.min.y;
+  obj.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  return new THREE.Box3().setFromObject(obj);
+}
+function loadOBJ(url, mtlUrl, cb) {
+  const dir = url.slice(0, url.lastIndexOf('/') + 1);
+  const file = url.slice(url.lastIndexOf('/') + 1);
+  mtlLoader.setPath(enc(dir)); mtlLoader.setResourcePath(enc(dir));
+  mtlLoader.load(enc(mtlUrl.slice(mtlUrl.lastIndexOf('/') + 1)), mats => {
+    mats.preload();
+    objLoader.setPath(enc(dir)); objLoader.setMaterials(mats);
+    objLoader.load(enc(file), cb, undefined, () => cb(null));
+  }, undefined, () => { // mtl yoksa malzemesiz dene
+    objLoader.setPath(enc(dir)); objLoader.setMaterials(null);
+    objLoader.load(enc(file), cb, undefined, () => cb(null));
+  });
+}
+
+// ---------- ŞEHİR (önce yedek kutular + çarpışma, sonra gerçek modeller) ----------
 const colliders = []; // {minX,maxX,minZ,maxZ,topY,type,cushion,bounce}
 function addBox(x, y, z, w, h, d, color, opts = {}) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d),
     new THREE.MeshStandardMaterial({ color, roughness: .85 }));
   m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true;
   scene.add(m);
-  if (opts.collide !== false) colliders.push({
-    minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2,
-    topY: y + h / 2, type: opts.type || 'solid',
-    cushion: !!opts.cushion, bounce: !!opts.bounce, name: opts.name || ''
-  });
-  return m;
+  let col = null;
+  if (opts.collide !== false) {
+    col = {
+      minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2,
+      topY: y + h / 2, type: opts.type || 'solid',
+      cushion: !!opts.cushion, bounce: !!opts.bounce, name: opts.name || ''
+    };
+    colliders.push(col);
+  }
+  return { mesh: m, col };
 }
 
-// zemin + yollar
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400),
   new THREE.MeshStandardMaterial({ color: 0x3f4756 }));
 ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
 
-// binalar: sokak ızgarası, çatılar parkur alanı
-const buildings = [
-  [-22, -22, 14, 12], [0, -24, 16, 14], [24, -22, 13, 11],
-  [-24, 0, 12, 15], [24, 2, 15, 16], [-23, 24, 14, 10],
-  [2, 26, 15, 12], [26, 26, 12, 14], [-45, -5, 12, 12], [46, -6, 12, 12],
+// Bina slotları: [x, z, fitW, fitD] + gerçek model. Yükseklik modelden gelir,
+// görev/fan/zipline yükseklikleri modeller inince otomatik snaplenir.
+const buildingDefs = [
+  { x: -22, z: -22, w: 14, d: 12, kind: 'obj', url: 'Apartment building/Apartment.obj', mtl: 'Apartment building/Apartment.mtl' },
+  { x: 0, z: -24, w: 16, d: 14, kind: 'obj', url: 'Large Building/large_buildingA.obj', mtl: 'Large Building/large_buildingA.mtl' },
+  { x: 24, z: -22, w: 13, d: 11, kind: 'obj', url: 'Large Building/large_buildingG.obj', mtl: 'Large Building/large_buildingG.mtl' },
+  { x: -24, z: 0, w: 12, d: 15, kind: 'fbx', url: 'Town House/Building1_Large.fbx' },
+  { x: 24, z: 2, w: 15, d: 16, kind: 'obj', url: 'Skyscraper/Skyscraper.obj', mtl: 'Skyscraper/Skyscraper.mtl' },
+  { x: -23, z: 24, w: 14, d: 10, kind: 'obj', url: 'House with driveway/HouseWithDriveway.obj', mtl: 'House with driveway/HouseWithDriveway.mtl' },
+  { x: 2, z: 26, w: 15, d: 12, kind: 'fbx', url: 'Building/Building4.fbx' },
+  { x: 26, z: 26, w: 12, d: 14, kind: 'obj', url: 'Apartment building/Apartment.obj', mtl: 'Apartment building/Apartment.mtl', rotY: Math.PI / 2 },
+  { x: -45, z: -5, w: 12, d: 12, kind: 'fbx', url: 'Town House/Building1_Large.fbx', rotY: Math.PI / 2 },
+  { x: 46, z: -6, w: 12, d: 12, kind: 'obj', url: 'Skyscraper/Skyscraper.obj', mtl: 'Skyscraper/Skyscraper.mtl', rotY: Math.PI },
+  { x: -45, z: 22, w: 14, d: 12, kind: 'obj', url: 'Hospital/CUPIC_HOSPITAL.obj', mtl: 'Hospital/CUPIC_HOSPITAL.mtl', name: 'hospital' },
+  { x: 46, z: 20, w: 12, d: 10, kind: 'obj', url: 'Bar/CUPIC_BAR.obj', mtl: 'Bar/CUPIC_BAR.mtl', name: 'bar' },
+  { x: 0, z: -46, w: 18, d: 12, kind: 'obj', url: 'Hotel Building/model.obj', mtl: 'Hotel Building/materials.mtl', name: 'hotel' },
 ];
 const palette = [0xd9d4c7, 0xb8c4d4, 0xe0a08a, 0x9db8a0, 0xc9b8e0];
-buildings.forEach((b, i) => {
-  const [x, z, w, d] = b; const h = 8 + (i % 4) * 3 + (i % 3);
-  addBox(x, h / 2, z, w, h, d, palette[i % palette.length], { type: 'building', name: 'b' + i });
-  // çatı kenar şeridi (sarı boya dili)
-  const rim = new THREE.Mesh(new THREE.BoxGeometry(w + .3, .15, d + .3),
+const modelCache = {}; // url -> Object3D (klonlar için)
+buildingDefs.forEach((b, i) => {
+  const h = 8 + (i % 4) * 3 + (i % 3);
+  const ph = addBox(b.x, h / 2, b.z, b.w, h, b.d, palette[i % palette.length], { type: 'building', name: b.name || ('b' + i) });
+  b.col = ph.col; b.mesh = ph.mesh;
+  const rim = new THREE.Mesh(new THREE.BoxGeometry(b.w + .3, .15, b.d + .3),
     new THREE.MeshBasicMaterial({ color: 0xfacc15 }));
-  rim.position.set(x, h + .08, z); scene.add(rim);
+  rim.position.set(b.x, h + .08, b.z); scene.add(rim); b.rim = rim;
 });
+function placeBuildingModel(b) {
+  const key = b.url;
+  const apply = src => {
+    const obj = modelCache[key] ? modelCache[key].clone() : src;
+    if (!modelCache[key]) modelCache[key] = src;
+    if (b.rotY) obj.rotation.y = b.rotY;
+    scene.add(obj);
+    const { h } = autoFit(obj, b.w, b.d, 17);
+    const box = groundModel(obj, b.x, b.z);
+    if (b.col) b.col.topY = box.max.y;
+    if (b.mesh) b.mesh.visible = false; // yedek kutuyu gizle, çarpışma güncel
+    if (b.rim) { b.rim.position.y = box.max.y + .08; }
+  };
+  if (modelCache[key]) { apply(null); return; }
+  const url = enc(CITY + b.url);
+  if (b.kind === 'fbx') fbxLoader.load(url, o => o && apply(o), undefined, () => {});
+  else loadOBJ(CITY + b.url, CITY + b.mtl, o => o && apply(o));
+}
+buildingDefs.forEach(placeBuildingModel);
 
-// hastane / bar / hotel landmark
-addBox(-45, 5, 22, 14, 10, 12, 0xffffff, { type: 'building', name: 'hospital' });
-addBox(46, 4, 20, 12, 8, 10, 0x7c2d12, { type: 'building', name: 'bar' });
-addBox(0, 6, -46, 18, 12, 12, 0x1e3a8a, { type: 'building', name: 'hotel' });
+// ufuk çizgisi: yüklenen modellerden klonlar (çarpışmasız)
+function skyline() {
+  const spots = [[-65, -40], [-65, 10], [-65, 55], [65, -40], [65, 10], [65, 55], [-30, -65], [30, -65], [-30, 65], [30, 65]];
+  const keys = Object.keys(modelCache);
+  if (!keys.length) return;
+  spots.forEach((s, i) => {
+    const src = modelCache[keys[i % keys.length]];
+    const c = src.clone();
+    c.position.set(s[0], 0, s[1]); c.rotation.y = (i * 1.3) % 6.28;
+    const { } = autoFit(c, 16, 16, 30); groundModel(c, s[0], s[1]);
+    scene.add(c);
+  });
+}
 
-// fanlar (updraft) — 3 adet
+// fanlar (updraft) — yükseklik snaplenir
 const fans = [];
-[[-22, -22, 12], [24, 2, 15], [2, 26, 12]].forEach(f => {
-  const [x, z, top] = f;
+const fanMeshes = [];
+[[-22, -22], [24, 2], [2, 26]].forEach(f => {
   const base = new THREE.Mesh(new THREE.CylinderGeometry(2, 2.4, 1, 16),
     new THREE.MeshStandardMaterial({ color: 0x22d3ee }));
-  base.position.set(x, top + .5, z); scene.add(base);
-  fans.push({ x, z, top: top + 1, r: 2.6, power: 16 });
+  base.position.set(f[0], 8.5, f[1]); scene.add(base); fanMeshes.push(base);
+  fans.push({ x: f[0], z: f[1], top: 9, r: 2.6, power: 16 });
 });
 
 // yumuşak iniş konteynerleri (mavi)
 [[-10, -10], [12, -8], [-8, 12], [14, 14], [0, -12], [-30, 8]].forEach(p => {
   addBox(p[0], .8, p[1], 3, 1.6, 2, 0x2563eb, { type: 'prop', cushion: true, name: 'container' });
 });
-// sekme panoları (sarı)
+// sekme panoları — gerçek Billboard modeliyle değişir
+const bouncePads = [];
 [[-14, 0], [10, 22], [30, 10]].forEach(p => {
-  addBox(p[0], .5, p[1], 4, 1, 4, 0xfacc15, { type: 'prop', bounce: true, name: 'billboard' });
+  const ph = addBox(p[0], .5, p[1], 4, 1, 4, 0xfacc15, { type: 'prop', bounce: true, name: 'billboard' });
+  bouncePads.push({ x: p[0], z: p[1], col: ph.col, mesh: ph.mesh });
+});
+loadOBJ(CITY + 'Billboard/Billboard 2.obj', CITY + 'Billboard/Billboard 2.mtl', tmpl => {
+  if (!tmpl) return;
+  modelCache['billboard'] = tmpl;
+  bouncePads.forEach(bp => {
+    const o = tmpl.clone(); scene.add(o);
+    autoFit(o, 4.5, 4.5, 4);
+    const box = groundModel(o, bp.x, bp.z);
+    if (bp.col) bp.col.topY = box.max.y;
+    if (bp.mesh) bp.mesh.visible = false;
+  });
 });
 
-// zipline hatları
+// sokak arabaları — gerçek modeller (vault ile üstünden geçilir)
+const carDefs = [
+  { f: ['Car/1377 Car.obj', 'Car/1377 Car.mtl'], x: -10, z: -6, r: 0 },
+  { f: ['Car/NormalCar2.obj', 'Car/NormalCar2.mtl'], x: 10, z: 6, r: Math.PI },
+  { f: ['Mitsubishi L200/l200.obj', 'Mitsubishi L200/l200.mtl'], x: -10, z: 18, r: 0 },
+  { f: ['Police Car/Cop.obj', 'Police Car/Cop.mtl'], x: 10, z: -18, r: Math.PI },
+  { f: ['Nissan GTR/GTR.obj', 'Nissan GTR/GTR.mtl'], x: 12, z: -34, r: Math.PI / 2 },
+  { f: ['Convertible/Convertible.obj', 'Convertible/Convertible.mtl'], x: -12, z: 36, r: -Math.PI / 2 },
+  { f: ['SUV/SUV.obj', 'SUV/SUV.mtl'], x: 34, z: -10, r: Math.PI / 2 },
+  { f: ['2015 Dodge Challenger/Grzybek/2015-dodge-challanger.fbx', null], x: -34, z: 12, r: 0, fbx: true },
+  { f: ['1994 Nissan 180MX/1994-nissan-180mx_2.fbx', null], x: 10, z: 42, r: Math.PI, fbx: true },
+  { f: ['CAR Model/Lamborghini_Aventador.obj', 'CAR Model/Lamborghini_Aventador.mtl'], x: -38, z: -30, r: Math.PI / 2 },
+];
+carDefs.forEach(c => {
+  const applyCar = o => {
+    o.rotation.y = c.r || 0; scene.add(o);
+    autoFit(o, 4.6, 4.6, 2.2);
+    const box = groundModel(o, c.x, c.z);
+    const w = box.max.x - box.min.x, d = box.max.z - box.min.z;
+    colliders.push({
+      minX: c.x - w / 2, maxX: c.x + w / 2, minZ: c.z - d / 2, maxZ: c.z + d / 2,
+      topY: box.max.y, type: 'prop', name: 'car'
+    });
+  };
+  if (c.fbx) fbxLoader.load(enc(CITY + c.f[0]), o => o && applyCar(o), undefined, () => {});
+  else loadOBJ(CITY + c.f[0], CITY + c.f[1], o => o && applyCar(o));
+});
+
+// sokak mobilyası: duraklar, trafik ışıkları, tabelalar, yol parçaları (dekor + ince çarpışma)
+function decorProp(url, mtl, x, z, fw, fh, rotY, collide) {
+  const go = o => {
+    if (rotY) o.rotation.y = rotY; scene.add(o);
+    autoFit(o, fw, fw, fh);
+    const box = groundModel(o, x, z);
+    if (collide) {
+      const w = box.max.x - box.min.x, d = box.max.z - box.min.z;
+      colliders.push({
+        minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2,
+        topY: box.max.y, type: 'prop', name: 'streetprop'
+      });
+    }
+  };
+  if (mtl) loadOBJ(CITY + url, CITY + mtl, o => o && go(o));
+  else fbxLoader.load(enc(CITY + url), o => o && go(o), undefined, () => {});
+}
+decorProp('Bus stop sign/bussy.fbx', null, -8, 14, 4, 4, 0, true);
+decorProp('Bus stop sign/bussy.fbx', null, 10, -14, 4, 4, Math.PI, true);
+decorProp('Traffic light/trafficlight_A.fbx', null, -8, -8, 1.5, 5, 0, true);
+decorProp('Traffic light/trafficlight_C.fbx', null, 8, 8, 1.5, 5, Math.PI, true);
+decorProp('Stop sign/1358 Stop Sign.obj', 'Stop sign/1358 Stop Sign.mtl', 8, -8, 1.2, 3, 0, false);
+decorProp('Bike Warning Road Sign/bikes.fbx', null, 4, 12, 1.5, 3, 0, false);
+decorProp('Path Straight/Path_Straight.fbx', null, 0, -34, 8, 1, 0, false);
+decorProp('Path Straight/Path_Straight.fbx', null, 0, 34, 8, 1, 0, false);
+decorProp('Road Bits/Road Bits.fbx', null, -34, 0, 8, 1, Math.PI / 2, false);
+decorProp('Road Bits/Road Bits.fbx', null, 34, 0, 8, 1, Math.PI / 2, false);
+
+// zipline hatları (yükseklik snaplenir)
 const ziplines = [
   { a: new THREE.Vector3(-22, 13, -22), b: new THREE.Vector3(0, 15, -24) },
   { a: new THREE.Vector3(24, 16, 2), b: new THREE.Vector3(2, 13, 26) },
   { a: new THREE.Vector3(0, 13, -46), b: new THREE.Vector3(0, 15, -24) },
 ];
+const zipLines = [], zipNodes = [];
 ziplines.forEach(z => {
   const g = new THREE.BufferGeometry().setFromPoints([z.a, z.b]);
-  scene.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x111111 })));
+  const line = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x111111 }));
+  scene.add(line); zipLines.push(line);
   [z.a, z.b].forEach(p => {
     const s = new THREE.Mesh(new THREE.SphereGeometry(.4), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
-    s.position.copy(p); scene.add(s);
+    s.position.copy(p); scene.add(s); zipNodes.push({ mesh: s, vec: p });
   });
 });
 
-// depo + teslim noktaları
+// depo + teslim noktaları (Y snaplenir)
 const depot = new THREE.Vector3(0, 0, 8);
 const depotMesh = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 1, 20),
   new THREE.MeshStandardMaterial({ color: 0x8b5cf6 }));
@@ -123,7 +286,39 @@ const beaconMat = new THREE.MeshBasicMaterial({ color: 0xfacc15, transparent: tr
 let beacon = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 30, 12), beaconMat);
 beacon.position.set(0, 15, 8); scene.add(beacon);
 
-// ---------- OYUNCU ----------
+function topAt(x, z) {
+  let top = 0;
+  for (const c of colliders) {
+    if (x > c.minX && x < c.maxX && z > c.minZ && z < c.maxZ && c.topY > top && c.topY < 60) top = c.topY;
+  }
+  return top;
+}
+let finalized = false;
+function finalizeLevel() {
+  if (finalized) return; finalized = true;
+  skyline();
+  fans.forEach((f, i) => {
+    const roof = topAt(f.x, f.z) || 8;
+    f.top = roof + 1;
+    if (fanMeshes[i]) fanMeshes[i].position.y = roof + .5;
+  });
+  ziplines.forEach(z => {
+    z.a.y = (topAt(z.a.x, z.a.z) || 10) + 1.5;
+    z.b.y = (topAt(z.b.x, z.b.z) || 10) + 1.5;
+  });
+  zipLines.forEach((line, i) => {
+    line.geometry.setFromPoints([ziplines[i].a, ziplines[i].b]);
+  });
+  zipNodes.forEach(n => n.mesh.position.copy(n.vec));
+  destPoints.forEach(d => { d.p.y = (topAt(d.p.x, d.p.z) || 8) + .5; });
+  if (job) beacon.position.set(destPoints[job.dest].p.x, destPoints[job.dest].p.y + 12, destPoints[job.dest].p.z);
+  loadEl.style.display = 'none';
+  document.getElementById('help').classList.remove('hidden');
+}
+manager.onLoad = finalizeLevel;
+setTimeout(finalizeLevel, 25000); // file:// modunda modeller inmezse yedeklerle başla
+
+// ---------- OYUNCU: Adventurer (animasyonlu) + yedek kukla ----------
 const player = new THREE.Group();
 const bodyMat = new THREE.MeshStandardMaterial({ color: 0xef4444 });
 const body = new THREE.Mesh(new THREE.BoxGeometry(.7, 1.1, .4), bodyMat);
@@ -131,13 +326,80 @@ body.position.y = 1.0; body.castShadow = true; player.add(body);
 const head = new THREE.Mesh(new THREE.BoxGeometry(.45, .45, .45),
   new THREE.MeshStandardMaterial({ color: 0xfcd9a0 }));
 head.position.y = 1.85; player.add(head);
-const pkgMesh = new THREE.Mesh(new THREE.BoxGeometry(.55, .55, .3),
-  new THREE.MeshStandardMaterial({ color: 0xb45309 }));
-pkgMesh.position.set(0, 1.2, -.4); player.add(pkgMesh); pkgMesh.visible = false;
+// Kargo: gerçek Package FBX (Isa Lousberg) bu gruba biner
+const pkgMesh = new THREE.Group();
+pkgMesh.position.set(0, 1.25, -.42); pkgMesh.visible = false; player.add(pkgMesh);
+fbxLoader.load(enc('assets/package/package.fbx'), o => {
+  if (!o) return;
+  const box = new THREE.Box3().setFromObject(o);
+  const size = new THREE.Vector3(); box.getSize(size);
+  o.scale.multiplyScalar(.55 / Math.max(size.x, size.y, size.z));
+  const b2 = new THREE.Box3().setFromObject(o);
+  o.position.sub(b2.getCenter(new THREE.Vector3()));
+  o.traverse(m => { if (m.isMesh) m.castShadow = true; });
+  pkgMesh.add(o);
+}, undefined, () => {});
 const bikeMesh = new THREE.Mesh(new THREE.BoxGeometry(.6, .5, 1.8),
   new THREE.MeshStandardMaterial({ color: 0x111827 }));
 bikeMesh.position.y = .5; bikeMesh.visible = false; player.add(bikeMesh);
 scene.add(player);
+
+// Adventurer FBX + animasyonlar (Idle / Run / Walk / Wave / Death)
+let heroModel = null, mixer = null, anims = {}, animState = '', waveT = 0, heroBaseY = 1;
+function setAnim(name) {
+  if (animState === name || !anims[name]) return;
+  const prev = anims[animState];
+  animState = name;
+  const next = anims[name];
+  next.reset();
+  if (prev) next.crossFadeFrom(prev, .22, false);
+  next.play();
+}
+fbxLoader.load(enc('assets/character/Adventurer.fbx'), o => {
+  if (!o) return;
+  heroModel = o;
+  const box = new THREE.Box3().setFromObject(o);
+  const size = new THREE.Vector3(); box.getSize(size);
+  const s = 1.8 / Math.max(size.y, .01);
+  o.scale.multiplyScalar(s);
+  const b2 = new THREE.Box3().setFromObject(o);
+  o.position.y -= b2.min.y;
+  heroBaseY = o.scale.y;
+  o.traverse(m => { if (m.isMesh) { m.castShadow = true; } });
+  player.add(o);
+  body.visible = false; head.visible = false;
+  mixer = new THREE.AnimationMixer(o);
+  const clips = o.animations || [];
+  const pick = re => clips.find(c => re.test(c.name));
+  [['idle', /idle/i], ['run', /run/i], ['walk', /walk/i], ['wave', /wave/i]].forEach(([k, re]) => {
+    const c = pick(re);
+    if (c) anims[k] = mixer.clipAction(c);
+  });
+  if (anims.idle) { anims.idle.play(); animState = 'idle'; }
+  else if (clips.length) { anims.idle = mixer.clipAction(clips[0]); anims.idle.play(); animState = 'idle'; }
+}, undefined, () => {});
+
+// tembel yayalar: Casual + Punk (ilk klipleriyle yürür)
+const walkers = [];
+function spawnWalkers() {
+  [['Casual Character/Casual_2.fbx', -6, -14], ['Punk/Punk.fbx', 8, 30]].forEach(([f, x, z]) => {
+    fbxLoader.load(enc(CITY + f), o => {
+      if (!o) return;
+      const box = new THREE.Box3().setFromObject(o);
+      const size = new THREE.Vector3(); box.getSize(size);
+      o.scale.multiplyScalar(1.75 / Math.max(size.y, .01));
+      o.traverse(m => { if (m.isMesh) m.castShadow = true; });
+      scene.add(o);
+      const w = { obj: o, t: Math.random() * 10, cx: x, cz: z, r: 6 + Math.random() * 4 };
+      if (o.animations && o.animations.length) {
+        w.mixer = new THREE.AnimationMixer(o);
+        const a = w.mixer.clipAction(o.animations[0]); a.play();
+      }
+      walkers.push(w);
+    }, undefined, () => {});
+  });
+}
+setTimeout(spawnWalkers, 6000);
 
 const P = {
   pos: new THREE.Vector3(0, 0, 12), vel: new THREE.Vector3(),
@@ -271,7 +533,6 @@ function openJobs() {
 function takeJob(i) {
   job = JOBS[i]; jobTime = 0; pkgHp = 100; heat = 100;
   pkgMesh.visible = true;
-  pkgMesh.material.color.set(job.type === 'fragile' ? 0x38bdf8 : job.type === 'hot' ? 0xf97316 : job.type === 'heavy' ? 0x52525b : 0xb45309);
   $('job-menu').classList.add('hidden');
   $('pkg-label').textContent = job.name.toUpperCase().slice(0, 14);
   $('heat-wrap').style.display = job.type === 'hot' ? 'block' : 'none';
@@ -305,6 +566,7 @@ function deliver() {
   toast(`${grade}! +💰${gain} (${jobTime.toFixed(1)}s, paket %${Math.round(pkgHp)})`, 3200);
   blip(grade === 'ALTIN' ? 990 : 520, .25);
   job = null; pkgMesh.visible = false;
+  if (anims.wave) { setAnim('wave'); waveT = 1.6; }
   $('pkg-label').textContent = 'BOŞ';
   beacon.position.set(depot.x, 15, depot.z);
   $('mission-title').textContent = 'Depoya dön ve yeni iş al (E)';
@@ -331,7 +593,7 @@ function groundHeight(x, z, curY) {
 
 // ana döngü
 const clock = new THREE.Clock();
-let firstFrame = true;
+let shake = 0;
 function tick() {
   requestAnimationFrame(tick);
   const dt = Math.min(clock.getDelta(), .05);
@@ -462,7 +724,7 @@ function tick() {
       jobTime += dt;
       if (job.type === 'hot') heat = Math.max(0, heat - dt * 100 / job.t[0]);
       const tgt = destPoints[job.dest].p;
-      $('mission-title').textContent = `${job.name} → ${destPoints[tgt === undefined ? 0 : job.dest].label} (${P.pos.distanceTo(tgt).toFixed(0)}m)`;
+      $('mission-title').textContent = `${job.name} → ${destPoints[job.dest].label} (${P.pos.distanceTo(tgt).toFixed(0)}m)`;
       const remain = Math.max(0, job.t[0] - jobTime);
       $('timer-bar').style.width = (remain / job.t[0] * 100) + '%';
       let grade = jobTime <= job.t[2] ? 'ALTIN tempo' : jobTime <= job.t[1] ? 'GÜMÜŞ tempo' : 'BRONZ tempo';
@@ -482,7 +744,28 @@ function tick() {
     P.yaw += d * Math.min(1, 12 * dt);
   }
   player.rotation.y = P.yaw;
-  body.scale.y = P.slideT > 0 ? .55 : 1;
+  // animasyon durumu
+  if (mixer) {
+    mixer.update(dt);
+    waveT -= dt;
+    if (waveT <= 0) {
+      const want = (!P.grounded || P.riding) ? 'run' : (P.speed > .6 ? 'run' : (P.speed > .1 && anims.walk ? 'walk' : 'idle'));
+      setAnim(want);
+      if (anims.run && animState === 'run') {
+        const a = anims.run; a.timeScale = Math.max(.6, Math.min(1.7, P.speed / 8));
+      }
+    }
+  }
+  if (heroModel) heroModel.scale.y = heroBaseY * (P.slideT > 0 ? .6 : 1);
+  else body.scale.y = P.slideT > 0 ? .55 : 1;
+  // yayalar
+  for (const w of walkers) {
+    w.t += dt * .25;
+    const wx = w.cx + Math.cos(w.t) * w.r, wz = w.cz + Math.sin(w.t) * w.r * .6;
+    w.obj.position.set(wx, topAt(wx, wz), wz);
+    w.obj.rotation.y = Math.atan2(-Math.sin(w.t) * w.r, Math.cos(w.t) * w.r * .6) + Math.PI / 2;
+    if (w.mixer) w.mixer.update(dt);
+  }
 
   const camDist = P.onMotor ? 7 : 5.5;
   const cx = P.pos.x - Math.sin(P.camYaw) * Math.cos(P.camPitch) * camDist;
@@ -527,10 +810,8 @@ function tick() {
   }
 
   beacon.rotation.y += dt;
-  if (firstFrame) { firstFrame = false; $('loading').style.display = 'none'; $('help').classList.remove('hidden'); }
   renderer.render(scene, camera);
 }
-let shake = 0;
 $('help-close').onclick = () => { $('help').classList.add('hidden'); initAudio(); };
 $('job-close').onclick = () => $('job-menu').classList.add('hidden');
 tick();

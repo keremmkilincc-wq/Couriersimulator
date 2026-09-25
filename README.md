@@ -146,8 +146,9 @@ otomatik çalışır ve dosyaları release'e ekler. Detay: `BUILD.md`.
 ## 🗺 Yol Haritası
 
 - [x] v0.1.0 MVP — sprint/slide/wall-run/zipline/fan, 6 iş, dereceler, flow, mobil UI
-- [ ] v0.2 — GitHub Pages canlı link + günlük rota (daily seed) + hayalet yarış
-- [ ] v0.3 — Gerçek FBX binaların Godot/üç-js ithali + gece modu + yağmur modifiyesi
+- [x] v0.2.0 — Kişisel site tarzı landing + Pages yayını + EXE/APK auto-build
+- [x] v0.3.0 — Gerçek City Pack şehri + animasyonlu Adventurer + gerçek kargo paketi
+- [ ] v0.4 — Günlük rota (daily seed) + hayalet yarış + gece modu
 - [ ] v1.0 — İmzalı APK + imzalı EXE, liderlik tablosu, 4 bölge (12+ görev)
 
 ---
@@ -158,9 +159,16 @@ otomatik çalışır ve dosyaları release'e ekler. Detay: `BUILD.md`.
 2. Oyna-test et (`npx serve .`)
 3. PR aç — GDD'ye aykırıysa gerekçesini yaz, his korunur: *durma, ak, teslim et.*
 
-## 📄 Lisans
+## 📄 Lisans ve Emeği Geçenler
 
-MIT — bkz. [LICENSE](LICENSE). Şehir assetleri (FBX/OBJ) orijinal sahiplerine aittir, repoda prosedürel MVP şehri kullanılır.
+Oyun kodu MIT — bkz. [LICENSE](LICENSE).
+
+3D modeller orijinal sahiplerine aittir, `assets/` altında asıllarıyla durur:
+- 🏙 Şehir: City Pack (FBX/OBJ + dokular)
+- 🧍 Karakter + animasyonlar (Idle/Run/Walk/Wave/Death): Adventurer by **Quaternius**
+- 📦 Kargo paketi: Package by **Isa Lousberg**
+
+Modeller yüklenemezse (ör. dosya doğrudan çift tıklanırsa) oyun prosedürel yedeklerle açılır.
 
 <div align="center">
 

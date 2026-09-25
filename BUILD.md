@@ -1,7 +1,13 @@
-# Courier Simulator — Çalıştırma ve Paketleme (v0.2.0)
+# Courier Simulator — Çalıştırma ve Paketleme (v0.3.0)
 
 Tek kod tabanı ile 3 çıktı. Site: `index.html` (tanıtım + indirme),
-oyun: `game.html` (Three.js, CDN gerekir).
+oyun: `game.html` (Three.js, CDN + `assets/` gerekir).
+
+Gerçek modeller `assets/` altındadır: `assets/city/` (City Pack bina/araç/yol/doku),
+`assets/character/Adventurer.fbx` (Quaternius, animasyonlu),
+`assets/package/package.fbx` (Isa Lousberg). Sayfa http ile sunulunca
+(Pages / `npx serve` / APK / Electron) modeller yüklenir; dosya çift tıklanırsa
+tarayıcı engeller, oyun yedek kutularla açılır.
 
 ## 1. Website (canlı)
 - GitHub Pages `main` dalından yayınlanır:
