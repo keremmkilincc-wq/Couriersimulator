@@ -1,0 +1,1 @@
+Gercek APK bu makinede derlenemez (Java 8 + SDK yok). APK icin BUILD.md adimlari sart.
